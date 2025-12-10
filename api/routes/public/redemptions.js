@@ -70,42 +70,42 @@ router.post('/', userAuth, async (req, res) => {
     const deviceId = bodyDeviceId || headerDevice || `device-${userId.toString()}`;
 
     // 4) Ensure user exists in DB
-  await User.updateOne(
-    { _id: userId },
-    {
-      $setOnInsert: {
-        _id: userId,
-        createdAt: userJwt.createdAt || new Date(),
+    await User.updateOne(
+      { _id: userId },
+      {
+        $setOnInsert: {
+          _id: userId,
+          createdAt: userJwt.createdAt || new Date(),
+        },
+        $set: {
+          email: userEmail,
+        },
       },
-      $set: {
-        email: userEmail,
-      },
-    },
-    { upsert: true },
-  );
+      { upsert: true },
+    );
 
     // 5) Look up coupon via couponId or couponCode
     let coupon;
     let couponId = bodyCouponId ? new mongoose.Types.ObjectId(bodyCouponId) : null;
     let couponCode = bodyCouponCode || null;
 
-// Check if ID is provided
+    // Check if ID is provided
     if (bodyCouponId) {
       coupon = await Coupon.findById(bodyCouponId).lean();
-    } 
+    }
     // If not, try by Code
     else if (bodyCouponCode) {
-       // DIRECT LOOKUP on Coupon model (Fixes the bug)
-       coupon = await Coupon.findOne({ code: bodyCouponCode }).lean();
+      // DIRECT LOOKUP on Coupon model (Fixes the bug)
+      coupon = await Coupon.findOne({ code: bodyCouponCode }).lean();
     }
 
     if (!coupon) {
-       return res.status(400).json({ ok: false, msg: 'Invalid coupon' });
+      return res.status(400).json({ ok: false, msg: 'Invalid coupon' });
     }
-    
+
     // Check status
     if (coupon.status !== 'active') {
-       return res.status(400).json({ ok: false, msg: 'Coupon is not active' });
+      return res.status(400).json({ ok: false, msg: 'Coupon is not active' });
     }
 
     const now = new Date();
@@ -122,20 +122,16 @@ router.post('/', userAuth, async (req, res) => {
     }).lean();
 
     // 7) Enforce single-use & maxRedemptions
+    // 7) Enforce single-use (per user) & maxRedemptions
     if (coupon.singleUse) {
-      if (!couponCode) {
-        return res.status(400).json({ ok: false, msg: 'couponCode is required for single-use coupon' });
-      }
-      const upd = await CouponCode.updateOne(
-        {
-          code: couponCode,
-          couponId: coupon._id,
-          $or: [{ usedBy: null }, { usedBy: { $exists: false } }],
-        },
-        { $set: { usedBy: userId, usedAt: new Date() } },
-      );
-      if (upd.matchedCount === 0 || upd.modifiedCount === 0) {
-        return res.status(400).json({ ok: false, msg: 'Single-use code already used or invalid' });
+      const alreadyRedeemed = await Redemption.findOne({
+        couponId: coupon._id,
+        userId: userId,
+        decision: { $ne: 'BLOCK' } 
+      });
+
+      if (alreadyRedeemed) {
+        return res.status(400).json({ ok: false, msg: 'You have already used this coupon' });
       }
     }
 
@@ -184,7 +180,7 @@ router.post('/', userAuth, async (req, res) => {
     const blockRisk = cfg?.thresholds?.blockRisk ?? 0.8;
     const challengeRisk = cfg?.thresholds?.challengeRisk ?? 0.6;
 
-    
+
     let decision = 'ALLOW';
     if (white) {
       decision = 'ALLOW';

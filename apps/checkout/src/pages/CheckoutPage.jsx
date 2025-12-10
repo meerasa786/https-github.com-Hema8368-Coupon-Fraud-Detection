@@ -11,6 +11,7 @@ export default function CheckoutPage() {
   const [email, setEmail] = useState(
     localStorage.getItem('checkout_user_email') || ''
   );
+  const [clientIp, setClientIp] = useState('');
 
   const navigate = useNavigate();
 
@@ -18,6 +19,13 @@ export default function CheckoutPage() {
     if (!getToken()) {
       navigate('/login');
     }
+    // Try to fetch public IP for better dev testing
+    fetch('https://api.ipify.org?format=json')
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.ip) setClientIp(d.ip);
+      })
+      .catch((err) => console.log('Failed to fetch public IP', err));
   }, [navigate]);
 
   function handleLogout() {
@@ -58,6 +66,7 @@ export default function CheckoutPage() {
         body: {
           couponCode,
           orderTotal: totalNum,
+          ip: clientIp,
         },
       });
       setResult(r);
@@ -75,10 +84,10 @@ export default function CheckoutPage() {
     typeof result?.risk === 'number'
       ? result.risk
       : typeof result?.riskScore === 'number'
-      ? result.riskScore
-      : typeof result?.redemption?.riskScore === 'number'
-      ? result.redemption.riskScore
-      : null;
+        ? result.riskScore
+        : typeof result?.redemption?.riskScore === 'number'
+          ? result.redemption.riskScore
+          : null;
 
   let why = '';
   if (Array.isArray(result?.why) && result.why.length) {

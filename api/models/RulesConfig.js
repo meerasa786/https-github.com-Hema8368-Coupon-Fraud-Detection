@@ -1,9 +1,8 @@
-
 const { Schema, model } = require('mongoose');
 
 const RulesConfigSchema = new Schema(
   {
-    version: { type: Number },                 
+    version: { type: Number },
     enabled: { type: Boolean, default: true },
 
     w_anom: { type: Number, default: 0.3, min: 0, max: 1 },
@@ -15,10 +14,10 @@ const RulesConfigSchema = new Schema(
 
     rules: [
       {
-        id: { type: String, required: true }, 
-        points: { type: Number, default: 0 },  
+        id: { type: String, required: true },
+        score: { type: Number, default: 0 },
         type: { type: String, default: 'soft', enum: ['soft', 'hard'] },
-        params: { type: Schema.Types.Mixed, default: {} } 
+        params: { type: Schema.Types.Mixed, default: {} }
       }
     ],
 

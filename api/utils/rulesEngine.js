@@ -1,16 +1,19 @@
 function evaluateRules(ctx, cfg) {
 
-  const rules = defaultRules();
+  const rules = (cfg && Array.isArray(cfg.rules) && cfg.rules.length > 0)
+    ? cfg.rules
+    : defaultRules();
   const hits = [];
 
   for (const r of rules) {
-    const { id, points, type='soft', params={} } = r;
+    const { id, score, points, type = 'soft', params = {} } = r;
+    const ruleScore = typeof score === 'number' ? score : (points || 0);
     let hit = false, detail = {};
 
     switch (id) {
       case 'new_acct_high_value':
         hit = ctx.acctAgeHours < (params.ageHours ?? 24) &&
-              ctx.couponValue  > (params.minValue ?? 20);
+          ctx.couponValue > (params.minValue ?? 20);
         detail = { acctAgeHours: ctx.acctAgeHours, couponValue: ctx.couponValue };
         break;
 
@@ -38,7 +41,7 @@ function evaluateRules(ctx, cfg) {
         hit = false;
     }
 
-    if (hit) hits.push({ id, score: points, type, detail });
+    if (hit) hits.push({ id, score: ruleScore, type, detail });
   }
 
   const rulesPoints = hits.reduce((s, h) => s + h.score, 0);
@@ -47,11 +50,11 @@ function evaluateRules(ctx, cfg) {
 
 function defaultRules() {
   return [
-    { id: 'new_acct_high_value', points: 0.4, type: 'soft', params: { ageHours: 24, minValue: 20 } },
-    { id: 'device_duplicate',    points: 0.5, type: 'soft', params: { maxPerDevice24h: 5 } },
-    { id: 'ip_burst',            points: 0.5, type: 'soft', params: { maxAccounts10m: 8 } },
-    { id: 'redemption_velocity', points: 0.4, type: 'soft', params: { maxUser24h: 3 } },
-    { id: 'code_guessing',       points: 0.8, type: 'hard', params: { maxFailed10m: 6 } }
+    { id: 'new_acct_high_value', score: 0.4, type: 'soft', params: { ageHours: 24, minValue: 20 } },
+    { id: 'device_duplicate', score: 0.5, type: 'soft', params: { maxPerDevice24h: 5 } },
+    { id: 'ip_burst', score: 0.5, type: 'soft', params: { maxAccounts10m: 8 } },
+    { id: 'redemption_velocity', score: 0.4, type: 'soft', params: { maxUser24h: 3 } },
+    { id: 'code_guessing', score: 0.8, type: 'hard', params: { maxFailed10m: 6 } }
   ];
 }
 
